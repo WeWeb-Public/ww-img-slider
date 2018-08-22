@@ -1,19 +1,19 @@
 <template>
-	<div class='ww-slider slider-container'>
-		<div v-show="wwShowLeftNav && wwObject.content.data.arrows.show" class="slider-control left inactive" v-bind:class="{'slider-control-bg':wwObject.content.data.arrows.showBg}" v-bind:style="{'color':wwObject.content.data.arrows.color}" v-on:click="wwNavigateLeft()"></div>
-		<div v-show="wwShowRightNav && wwObject.content.data.arrows.show" class="slider-control right" v-bind:class="{'slider-control-bg':wwObject.content.data.arrows.showBg}" v-bind:style="{'color':wwObject.content.data.arrows.color}" v-on:click="wwNavigateRight()"></div>
+	<div class="ww-slider slider-container">
+		<div v-show="wwShowLeftNav && wwObject.content.data.arrows.show" class="slider-control left inactive" v-bind:class="{'slider-control-bg':wwObject.content.data.arrows.showBg}" v-bind:style="{color: wwObject.content.data.arrows.color}" v-on:click="wwNavigateLeft()"></div>
+		<div v-show="wwShowRightNav && wwObject.content.data.arrows.show" class="slider-control right" v-bind:class="{'slider-control-bg':wwObject.content.data.arrows.showBg}" v-bind:style="{color: wwObject.content.data.arrows.color}" v-on:click="wwNavigateRight()"></div>
 		<ul class="slider-pagi" v-show="wwObject.content.data.bullets.show">
-			<div v-show="wwEditingSection" class="add-btn" v-on:click="wwAddSlide()">
-				<i class='fa fa-plus' aria-hidden='true'></i>
-			</div>
-			<li class="slider-pagi__elem slider-pagi__elem-{{$index}}" v-bind:class="{'active': wwSliderProps.curSlide == $index}" v-for="slide in wwSlides" :key="slide.uniqueId" v-on:click="wwPagiClick($index)">
+			<!-- <div v-show="wwEditingSection" class="add-btn" v-on:click="wwAddSlide()">
+				<i class="fa fa-plus" aria-hidden="true"></i>
+			</div> -->
+			<li class="slider-pagi__elem" v-bind:class="[true ? 'slider-pagi__elem-' + index : '', (wwSliderProps.curSlide == index) ? 'active': '']" v-for="(slide, index) in wwSlides" :key="slide.uniqueId" v-on:click="wwPagiClick(index)">
 			</li>
 		</ul>
 		<div class="slider slider-h">
-			<div v-for="slide in wwSlides" :key="slide.uniqueId">
-				<div class="slide slide-{{$index}} active" v-bind:style="{'left': 100 * $index + '%' }">
+			<div v-for="(slide, index) in wwSlides" :key="slide.uniqueId">
+				<div class="slide active" v-bind:class="'slide-' + index" v-bind:style="{'left': 100 * index + '%' }">
 					<div class="slide-img-container">
-						<div class="slide__bg" v-bind:style="{'left': -50 * $index + '%' }" ww-object="slide.img" ww-category="background">
+						<div class="slide__bg" v-bind:style="{'left': -50 * index + '%' }" ww-object="slide.img" ww-category="background">
 						</div>
 					</div>
 					<div class="slide__content" v-bind:class="{'editing': wwEditingSection}">
@@ -22,9 +22,9 @@
 							<wwObject v-bind:ww-object="slide.content" class="slide__text-desc"></wwObject>
 						</div>
 					</div>
-					<div v-show="wwEditingSection" class="remove-btn" v-on:click="wwRemoveSlide(slide)">
+					<!-- <div v-show="wwEditingSection" class="remove-btn" v-on:click="wwRemoveSlide(slide)">
 						<i class="fa fa-times" aria-hidden="true"></i>
-					</div>
+					</div> -->
 				</div>
 			</div>
 		</div>
@@ -48,7 +48,19 @@ export default {
 	data() {
 		return {
 			wwSlides: [],
-			wwSliderProps: {}
+			wwSliderProps: {
+				sliderElement: null,
+				curSlide: 0,
+				animating: false,
+				animTime: 500,
+				autoSlideTimeout: null,
+				autoSlideDelay: 6000,
+				diff: 0,
+				startX: 0
+			},
+			wwShowLeftNav: true,
+			wwShowRightNav: true,
+			wwEditingSection: false
 		};
 	},
 	computed: {
@@ -85,6 +97,8 @@ export default {
 
 				sliderElement.on("mousedown touchstart", wwSliderMousedown);
 			}
+
+			this.wwSliderProps.sliderElement = this.$el.querySelector('.slider');
 
 			this.wwAutoSlide()
 
@@ -129,25 +143,26 @@ export default {
 			this.wwSliderProps.sliderElement.find(".slide__bg").css("transform", "translate3d(" + (this.wwSliderProps.curSlide * 50 + this.wwSliderProps.diff / 2) + "%,0,0)");
 		},
 		wwAutoSlide() {
+			let self = this;
 			this.wwSliderProps.autoSlideTimeout = setTimeout(function () {
-				this.wwSliderProps.curSlide++;
-				if (this.wwSliderProps.curSlide > this.wwSlides.length - 1) { this.wwSliderProps.curSlide = 0; }
-				wwChangeSlides();
-			}, this.wwSliderProps.autoSlideDelay);
+				self.wwSliderProps.curSlide++;
+				if (self.wwSliderProps.curSlide > self.wwSlides.length - 1) { self.wwSliderProps.curSlide = 0; }
+				self.wwChangeSlides();
+			}, self.wwSliderProps.autoSlideDelay);
 		},
 		wwNavigateLeft() {
 			if (this.wwSliderProps.animating) { return; }
 			if (this.wwSliderProps.curSlide > 0) {
 				this.wwSliderProps.curSlide--;
 			}
-			wwChangeSlides();
+			this.wwChangeSlides();
 		},
 		wwNavigateRight() {
 			if (this.wwSliderProps.animating) { return; }
 			if (this.wwSliderProps.curSlide < this.wwSlides.length - 1) {
 				this.wwSliderProps.curSlide++;
 			}
-			wwChangeSlides();
+			this.wwChangeSlides();
 		},
 		wwChangeSlides(instant) {
 			// show or hide controls
@@ -163,26 +178,35 @@ export default {
 			if (!instant) {
 				this.wwSliderProps.animating = true;
 				//wwManageControls();
-				this.wwSliderProps.sliderElement.addClass("animating");
-				this.wwSliderProps.sliderElement.css("top");
-				this.wwSliderProps.sliderElement.find(".slide").removeClass("active");
-				this.wwSliderProps.sliderElement.find(".slide-" + this.wwSliderProps.curSlide).addClass("active");
+				this.wwSliderProps.sliderElement.classList.add('animating');
+				// this.wwSliderProps.sliderElement.style.top = 0 + 'px';
+				this.wwSliderProps.sliderElement.querySelector('.slide').classList.remove('active');
+				this.wwSliderProps.sliderElement.querySelector('.slide-' + this.wwSliderProps.curSlide).classList.add('active');
+				let self = this;
 				setTimeout(function () {
-					this.wwSliderProps.sliderElement.removeClass("animating");
-					this.wwSliderProps.animating = false;
-				}, this.wwSliderProps.animTime);
+					self.wwSliderProps.sliderElement.classList.remove('animating');
+					self.wwSliderProps.animating = false;
+				}, self.wwSliderProps.animTime);
 			}
 			window.clearTimeout(this.wwSliderProps.autoSlideTimeout);
-			this.wwSliderProps.sliderElement.find(".slider-pagi__elem").removeClass("active");
-			this.wwSliderProps.sliderElement.find(".slider-pagi__elem-" + this.wwSliderProps.curSlide).addClass("active");
-			this.wwSliderProps.sliderElement.css("transform", "translate3d(" + (-this.wwSliderProps.curSlide * 100) + "%,0,0)");
-			this.wwSliderProps.sliderElement.find(".slide__bg").css("transform", "translate3d(" + this.wwSliderProps.curSlide * 50 + "%,0,0)");
+			this.$el.querySelector('.slider-pagi__elem').classList.remove('active');
+			this.$el.querySelector('.slider-pagi__elem-' + this.wwSliderProps.curSlide).classList.add('active');
+			this.wwSliderProps.sliderElement.style.transform = 'translate3d(' + (-this.wwSliderProps.curSlide * 100) + '%,0,0)';
+			this.wwSliderProps.sliderElement.querySelector('.slide__bg').transform = 'translate3d(' + this.wwSliderProps.curSlide * 50 + '%,0,0)';
 			this.wwSliderProps.diff = 0;
-			if (!this.wwEditingSection) { wwAutoSlide(); }
+			if (!this.wwEditingSection) { this.wwAutoSlide(); }
 		}
 	},
 	mounted() {
 		this.initSlider()
+
+		wwLib.wwElementsStyle.applyAllStyles({
+			wwObject: this.wwObject,
+			lastWwObject: null,
+			element: this.$el,
+			noClass: false,
+			noAnim: this.wwAttrs.wwNoAnim,
+		});
 	}
 };
 </script>
